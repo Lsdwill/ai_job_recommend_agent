@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+.github
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Build artifacts
+*.exe
+qd-sc-server
+*.test
+*.out
+
+# Uploads and data
+uploads/
+*.log
+
+# Documentation
+README.md
+*.md
+
+# Config (will be mounted)
+# config.yaml
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# CI/CD
+Makefile
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+*_test.go
+
