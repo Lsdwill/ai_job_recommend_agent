@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  qd-sc-server:
+    image: qd-sc:v1.0-arm64
+    platform: linux/arm64  # 强制指定平台
+    container_name: qd-sc-server-arm64
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      - GIN_MODE=release
+      - TZ=Asia/Shanghai
+      # ARM优化配置
+      - GOMAXPROCS=4
+      - GOMEMLIMIT=2GiB
+      # 环境变量配置
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_BASE_URL=${LLM_BASE_URL}
+      - AMAP_API_KEY=${AMAP_API_KEY}
+      - OCR_BASE_URL=${OCR_BASE_URL}
+      - JOB_API_BASE_URL=${JOB_API_BASE_URL}
+      - POLICY_BASE_URL=${POLICY_BASE_URL}
+      - POLICY_LOGIN_NAME=${POLICY_LOGIN_NAME}
+      - POLICY_USER_KEY=${POLICY_USER_KEY}
+      - POLICY_SERVICE_ID=${POLICY_SERVICE_ID}
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s  # ARM启动可能稍慢
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+    # ARM平台资源限制
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '4'
+        reservations:
+          memory: 1G
+          cpus: '2'

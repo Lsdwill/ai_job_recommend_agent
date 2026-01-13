@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  qd-sc-server:
+    image: qd-sc:v1.0-amd64
+    container_name: qd-sc-server-amd64
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      - GIN_MODE=release
+      - TZ=Asia/Shanghai
+      # 环境变量配置（覆盖config.yaml）
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_BASE_URL=${LLM_BASE_URL}
+      - AMAP_API_KEY=${AMAP_API_KEY}
+      - OCR_BASE_URL=${OCR_BASE_URL}
+      - JOB_API_BASE_URL=${JOB_API_BASE_URL}
+      - POLICY_BASE_URL=${POLICY_BASE_URL}
+      - POLICY_LOGIN_NAME=${POLICY_LOGIN_NAME}
+      - POLICY_USER_KEY=${POLICY_USER_KEY}
+      - POLICY_SERVICE_ID=${POLICY_SERVICE_ID}
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
