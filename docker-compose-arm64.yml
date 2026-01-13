@@ -3,7 +3,7 @@ version: '3.8'
 services:
   qd-sc-server:
     image: qd-sc:v1.0-arm64
-    platform: linux/arm64  # 强制指定平台
+    platform: linux/arm64  # 强制指定ARM64架构
     container_name: qd-sc-server-arm64
     restart: unless-stopped
     ports:
@@ -11,33 +11,62 @@ services:
     volumes:
       - ./config.yaml:/app/config.yaml:ro
     environment:
+      # 基础配置
       - GIN_MODE=release
       - TZ=Asia/Shanghai
-      # ARM优化配置
-      - GOMAXPROCS=4
-      - GOMEMLIMIT=2GiB
-      # 环境变量配置
+      
+      # 服务器配置
+      - SERVER_PORT=${SERVER_PORT:-8080}
+      - SERVER_HOST=${SERVER_HOST:-0.0.0.0}
+      
+      # LLM配置（必填）
       - LLM_API_KEY=${LLM_API_KEY}
-      - LLM_BASE_URL=${LLM_BASE_URL}
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://apix.newapi.pro/v1}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4o}
+      
+      # 高德地图配置（必填）
       - AMAP_API_KEY=${AMAP_API_KEY}
-      - OCR_BASE_URL=${OCR_BASE_URL}
-      - JOB_API_BASE_URL=${JOB_API_BASE_URL}
+      
+      # OCR服务配置
+      - OCR_BASE_URL=${OCR_BASE_URL:-https://your-ocr-api.example.com}
+      
+      # 岗位API配置
+      - JOB_API_BASE_URL=${JOB_API_BASE_URL:-http://127.0.0.1:9091/app/job/aiList}
+      
+      # 政策API配置
       - POLICY_BASE_URL=${POLICY_BASE_URL}
       - POLICY_LOGIN_NAME=${POLICY_LOGIN_NAME}
       - POLICY_USER_KEY=${POLICY_USER_KEY}
       - POLICY_SERVICE_ID=${POLICY_SERVICE_ID}
+      
+      # 城市配置
+      - CITY_NAME=${CITY_NAME:-石河子}
+      - CITY_SYSTEM_NAME=${CITY_SYSTEM_NAME:-石河子岗位匹配系统}
+      
+      # ARM64性能优化配置
+      - GOMAXPROCS=4  # ARM64建议限制CPU核心数
+      - GOMEMLIMIT=2GiB  # ARM64内存限制
+      - GOGC=200  # 降低GC频率，适合ARM64
+      
+      # ARM64特定优化
+      - CGO_ENABLED=0
+      - GOOS=linux
+      - GOARCH=arm64
+      
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s  # ARM启动可能稍慢
+      interval: 45s  # ARM64检查间隔稍长
+      timeout: 15s   # ARM64超时时间稍长
+      retries: 5     # ARM64重试次数增加
+      start_period: 90s  # ARM64启动时间较长
+      
     logging:
       driver: "json-file"
       options:
         max-size: "50m"
         max-file: "3"
-    # ARM平台资源限制
+        
+    # ARM64资源限制（更保守）
     deploy:
       resources:
         limits:

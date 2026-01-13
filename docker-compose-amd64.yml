@@ -3,6 +3,7 @@ version: '3.8'
 services:
   qd-sc-server:
     image: qd-sc:v1.0-amd64
+    platform: linux/amd64  # 明确指定架构
     container_name: qd-sc-server-amd64
     restart: unless-stopped
     ports:
@@ -10,26 +11,52 @@ services:
     volumes:
       - ./config.yaml:/app/config.yaml:ro
     environment:
+      # 基础配置
       - GIN_MODE=release
       - TZ=Asia/Shanghai
-      # 环境变量配置（覆盖config.yaml）
+      
+      # 服务器配置
+      - SERVER_PORT=${SERVER_PORT:-8080}
+      - SERVER_HOST=${SERVER_HOST:-0.0.0.0}
+      
+      # LLM配置（必填）
       - LLM_API_KEY=${LLM_API_KEY}
-      - LLM_BASE_URL=${LLM_BASE_URL}
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://apix.newapi.pro/v1}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4o}
+      
+      # 高德地图配置（必填）
       - AMAP_API_KEY=${AMAP_API_KEY}
-      - OCR_BASE_URL=${OCR_BASE_URL}
-      - JOB_API_BASE_URL=${JOB_API_BASE_URL}
+      
+      # OCR服务配置
+      - OCR_BASE_URL=${OCR_BASE_URL:-https://your-ocr-api.example.com}
+      
+      # 岗位API配置
+      - JOB_API_BASE_URL=${JOB_API_BASE_URL:-http://127.0.0.1:9091/app/job/aiList}
+      
+      # 政策API配置
       - POLICY_BASE_URL=${POLICY_BASE_URL}
       - POLICY_LOGIN_NAME=${POLICY_LOGIN_NAME}
       - POLICY_USER_KEY=${POLICY_USER_KEY}
       - POLICY_SERVICE_ID=${POLICY_SERVICE_ID}
+      
+      # 城市配置
+      - CITY_NAME=${CITY_NAME:-石河子}
+      - CITY_SYSTEM_NAME=${CITY_SYSTEM_NAME:-石河子岗位匹配系统}
+      
+      # 性能配置（AMD64优化）
+      - GOMAXPROCS=0  # 使用所有可用CPU
+      - GOMEMLIMIT=4GiB
+      - GOGC=100
+      
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 40s  # AMD64启动较快
+      
     logging:
       driver: "json-file"
       options:
-        max-size: "50m"
-        max-file: "3"
+        max-size: "100m"
+        max-file: "5"
