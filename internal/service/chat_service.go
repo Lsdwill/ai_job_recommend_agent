@@ -8,6 +8,7 @@ import (
 	"qd-sc/internal/client"
 	"qd-sc/internal/config"
 	"qd-sc/internal/model"
+	contentutils "qd-sc/internal/pkg/utils"
 	"qd-sc/pkg/utils"
 	"regexp"
 	"strings"
@@ -168,6 +169,82 @@ func (s *ChatService) getHallucinationWarningMessage() string {
 	return "抱歉，我需要先查询实际的岗位数据才能为您推荐。请稍等，我正在为您搜索符合条件的岗位..."
 }
 
+// rebuildChunksWithFilteredContent 重新构建过滤思维链后的chunks
+func (s *ChatService) rebuildChunksWithFilteredContent(originalChunks []*model.ChatCompletionChunk, filteredContent string) []*model.ChatCompletionChunk {
+	if len(originalChunks) == 0 || filteredContent == "" {
+		return []*model.ChatCompletionChunk{}
+	}
+
+	// 创建一个新的chunk包含过滤后的完整内容
+	filteredChunk := &model.ChatCompletionChunk{
+		ID:      originalChunks[0].ID,
+		Object:  originalChunks[0].Object,
+		Created: originalChunks[0].Created,
+		Model:   originalChunks[0].Model,
+		Choices: []model.ChunkChoice{
+			{
+				Index: 0,
+				Delta: model.Message{
+					Role:    "assistant",
+					Content: filteredContent,
+				},
+				FinishReason: "stop",
+			},
+		},
+	}
+
+	return []*model.ChatCompletionChunk{filteredChunk}
+}
+
+// thinkingTagState 思维链标签状态
+type thinkingTagState struct {
+	insideThinking bool
+	buffer         strings.Builder
+}
+
+var globalThinkingState = &thinkingTagState{}
+
+// filterThinkingTagsRealtime 实时过滤思维链标签（处理跨chunk的情况）
+func (s *ChatService) filterThinkingTagsRealtime(content string) string {
+	if content == "" {
+		return content
+	}
+
+	var result strings.Builder
+	i := 0
+
+	for i < len(content) {
+		if globalThinkingState.insideThinking {
+			// 当前在思维链内部，查找结束标签
+			endIndex := strings.Index(content[i:], "</think>")
+			if endIndex != -1 {
+				// 找到结束标签，跳过思维链内容和结束标签
+				i += endIndex + len("</think>")
+				globalThinkingState.insideThinking = false
+				globalThinkingState.buffer.Reset()
+			} else {
+				// 没找到结束标签，整个chunk都在思维链内部
+				return ""
+			}
+		} else {
+			// 当前在思维链外部，查找开始标签
+			startIndex := strings.Index(content[i:], "<think>")
+			if startIndex != -1 {
+				// 找到开始标签，保留之前的内容
+				result.WriteString(content[i : i+startIndex])
+				i += startIndex + len("<think>")
+				globalThinkingState.insideThinking = true
+			} else {
+				// 没找到开始标签，保留剩余内容
+				result.WriteString(content[i:])
+				break
+			}
+		}
+	}
+
+	return result.String()
+}
+
 // ChatService 对话服务
 type ChatService struct {
 	cfg             *config.Config
@@ -198,7 +275,12 @@ func NewChatService(
 }
 
 // ProcessChatRequest 处理聊天请求
+// ProcessChatRequest 处理聊天请求
 func (s *ChatService) ProcessChatRequest(req *model.ChatCompletionRequest) (*model.ChatCompletionResponse, error) {
+	// 重置思维链状态
+	globalThinkingState.insideThinking = false
+	globalThinkingState.buffer.Reset()
+
 	// 准备消息
 	messages := s.prepareMessages(req.Messages)
 
@@ -209,9 +291,9 @@ func (s *ChatService) ProcessChatRequest(req *model.ChatCompletionRequest) (*mod
 	isJobIntent := s.isJobQueryIntent(req.Messages)
 	var toolChoice interface{} = "auto"
 	if isJobIntent {
-		// 岗位场景：强制要求调用工具
-		toolChoice = "required"
-		log.Printf("检测到岗位查询意图，设置 tool_choice=required")
+		// 岗位场景：使用 auto 模式让模型自动决定是否调用工具
+		toolChoice = "auto"
+		log.Printf("检测到岗位查询意图，设置 tool_choice=auto")
 	}
 
 	// 构建请求（使用配置文件中的实际模型名称）
@@ -247,7 +329,11 @@ func (s *ChatService) ProcessChatRequest(req *model.ChatCompletionRequest) (*mod
 			// 岗位意图场景下的幻觉检测
 			if isJobIntent && !jobToolCalled {
 				if content, ok := choice.Message.Content.(string); ok {
-					if s.containsJobHallucination(content) {
+					// 过滤思维链标签
+					filteredContent := contentutils.FilterThinkingTags(content)
+					choice.Message.Content = filteredContent
+
+					if s.containsJobHallucination(filteredContent) {
 						log.Printf("拦截岗位幻觉输出，强制重新调用工具")
 						// 修改消息，添加系统提示强制调用工具
 						llmReq.Messages = append(llmReq.Messages, model.Message{
@@ -257,6 +343,12 @@ func (s *ChatService) ProcessChatRequest(req *model.ChatCompletionRequest) (*mod
 						llmReq.ToolChoice = s.getJobToolChoice()
 						continue
 					}
+				}
+			} else {
+				// 非岗位意图场景也需要过滤思维链
+				if content, ok := choice.Message.Content.(string); ok {
+					filteredContent := contentutils.FilterThinkingTags(content)
+					choice.Message.Content = filteredContent
 				}
 			}
 			log.Printf("模型返回finish_reason=stop，对话结束")
@@ -268,7 +360,11 @@ func (s *ChatService) ProcessChatRequest(req *model.ChatCompletionRequest) (*mod
 			// 岗位意图场景下的幻觉检测
 			if isJobIntent && !jobToolCalled {
 				if content, ok := choice.Message.Content.(string); ok {
-					if s.containsJobHallucination(content) {
+					// 过滤思维链标签
+					filteredContent := contentutils.FilterThinkingTags(content)
+					choice.Message.Content = filteredContent
+
+					if s.containsJobHallucination(filteredContent) {
 						log.Printf("拦截岗位幻觉输出，强制重新调用工具")
 						llmReq.Messages = append(llmReq.Messages, model.Message{
 							Role:    "user",
@@ -277,6 +373,12 @@ func (s *ChatService) ProcessChatRequest(req *model.ChatCompletionRequest) (*mod
 						llmReq.ToolChoice = s.getJobToolChoice()
 						continue
 					}
+				}
+			} else {
+				// 非岗位意图场景也需要过滤思维链
+				if content, ok := choice.Message.Content.(string); ok {
+					filteredContent := contentutils.FilterThinkingTags(content)
+					choice.Message.Content = filteredContent
 				}
 			}
 			return resp, nil
@@ -324,6 +426,10 @@ func (s *ChatService) ProcessChatRequestStream(ctx context.Context, req *model.C
 		defer close(chunkChan)
 		defer close(errChan)
 
+		// 重置思维链状态
+		globalThinkingState.insideThinking = false
+		globalThinkingState.buffer.Reset()
+
 		// 准备消息
 		messages := s.prepareMessages(req.Messages)
 
@@ -334,9 +440,9 @@ func (s *ChatService) ProcessChatRequestStream(ctx context.Context, req *model.C
 		isJobIntent := s.isJobQueryIntent(req.Messages)
 		var toolChoice interface{} = "auto"
 		if isJobIntent {
-			// 岗位场景：强制要求调用工具
-			toolChoice = "required"
-			log.Printf("【流式】检测到岗位查询意图，设置 tool_choice=required")
+			// 岗位场景：使用 auto 模式让模型自动决定是否调用工具
+			toolChoice = "auto"
+			log.Printf("【流式】检测到岗位查询意图，设置 tool_choice=auto")
 		}
 
 		// 构建请求（使用配置文件中的实际模型名称）
@@ -464,8 +570,26 @@ func (s *ChatService) ProcessChatRequestStream(ctx context.Context, req *model.C
 						chunkCopy := *chunk
 						pendingChunks = append(pendingChunks, &chunkCopy)
 					} else if shouldForward {
-						// 非岗位场景或已调用工具：直接转发
-						chunkChan <- chunk
+						// 非岗位场景或已调用工具：实时过滤思维链后转发
+						if len(chunk.Choices) > 0 {
+							if content, ok := chunk.Choices[0].Delta.Content.(string); ok && content != "" {
+								// 实时过滤思维链标签 - 处理跨chunk的情况
+								filteredContent := s.filterThinkingTagsRealtime(content)
+								if filteredContent != "" {
+									// 创建过滤后的chunk
+									filteredChunk := *chunk
+									filteredChunk.Choices[0].Delta.Content = filteredContent
+									chunkChan <- &filteredChunk
+								}
+								// 如果过滤后内容为空，则不转发这个chunk
+							} else {
+								// 非内容chunk，直接转发
+								chunkChan <- chunk
+							}
+						} else {
+							// 没有choices，直接转发
+							chunkChan <- chunk
+						}
 					}
 
 				case err, ok := <-respErrChan:
@@ -491,8 +615,12 @@ func (s *ChatService) ProcessChatRequestStream(ctx context.Context, req *model.C
 			// 岗位意图场景下的幻觉检测
 			if isJobIntent && !jobToolCalled && len(toolCalls) == 0 {
 				bufferedContent := contentBuffer.String()
-				if s.containsJobHallucination(bufferedContent) {
-					log.Printf("【流式】拦截岗位幻觉输出，内容长度: %d，丢弃缓冲的 %d 个chunks", len(bufferedContent), len(pendingChunks))
+
+				// 过滤思维链标签
+				filteredContent := contentutils.FilterThinkingTags(bufferedContent)
+
+				if s.containsJobHallucination(filteredContent) {
+					log.Printf("【流式】拦截岗位幻觉输出，内容长度: %d，丢弃缓冲的 %d 个chunks", len(filteredContent), len(pendingChunks))
 
 					// 不转发幻觉内容，发送警告消息并强制重新调用工具
 					if !hallucinationIntercepted {
@@ -523,9 +651,19 @@ func (s *ChatService) ProcessChatRequestStream(ctx context.Context, req *model.C
 					llmReq.ToolChoice = s.getJobToolChoice()
 					continue
 				} else {
-					// 没有幻觉，转发缓冲的chunks
-					for _, pendingChunk := range pendingChunks {
-						chunkChan <- pendingChunk
+					// 没有幻觉，但需要过滤思维链后转发缓冲的chunks
+					if contentutils.ContainsThinkingTags(bufferedContent) {
+						log.Printf("【流式】检测到思维链标签，过滤后转发")
+						// 重新构建过滤后的chunks
+						filteredChunks := s.rebuildChunksWithFilteredContent(pendingChunks, filteredContent)
+						for _, filteredChunk := range filteredChunks {
+							chunkChan <- filteredChunk
+						}
+					} else {
+						// 没有思维链，直接转发原始chunks
+						for _, pendingChunk := range pendingChunks {
+							chunkChan <- pendingChunk
+						}
 					}
 				}
 			}
