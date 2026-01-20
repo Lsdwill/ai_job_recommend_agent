@@ -1,0 +1,81 @@
+# 石河子岗位匹配系统配置文件示例
+# 使用方法：复制此文件为 config.yaml 并填入真实配置
+# cp config.yaml config.yaml
+
+# 城市配置
+city:
+  name: "石河子"                                  # 城市名称
+  system_name: "石河子岗位匹配系统"                # 系统名称
+  area_codes:                                   # 区域代码映射
+    石河子市: "0"
+    疏附县: "1"
+    疏勒县: "2"
+    英吉沙县: "3"
+    岳普湖县: "4"
+    伽师县: "5"
+    莎车县: "6"
+    泽普县: "7"
+    叶城县: "8"
+    麦盖提县: "9"
+    巴楚县: "10"
+    塔什库尔干塔吉克自治县: "11"
+  landmarks:                                    # 地标示例（用于工具描述）
+    - "石河子大学"
+    - "军垦博物馆"
+  abbreviations:                                # 简称映射（用于语义理解提示）
+    石大: "石河子大学"
+
+# 服务器配置
+server:
+  port: 8080
+  host: "0.0.0.0"
+  read_timeout: 30s      # 读取请求超时
+  write_timeout: 300s    # 写入响应超时（流式响应需要更长时间）
+
+# LLM配置
+llm:
+  base_url: "http://39.98.44.136:6017/inner/v1"        # LLM API地址
+  api_key: ""              # LLM API密钥（必填）
+  model: "qwen3"                                 # 使用支持工具调用的模型
+  timeout: 120s
+  max_retries: 3
+
+# 高德地图配置
+amap:
+  api_key: "your-amap-api-key"                 # 高德地图API密钥（必填）
+  base_url: "https://restapi.amap.com/v3"
+  timeout: 10s
+
+# 岗位API配置
+job_api:
+  base_url: "https://www.xjksly.cn/api/ks/cms/job/list"     # 岗位API地址
+  timeout: 30s
+
+# OCR服务配置 - 用于解析图片、PDF、Excel、PPT等文件
+ocr:
+  base_url: "https://your-ocr-api.example.com"  # 外网地址
+  # base_url: "http://127.0.0.1:9001"  # 内网地址
+  timeout: 120s
+
+# 政策咨询配置
+policy:
+  base_url: "http://your-policy-api:port"      # 政策API地址
+  login_name: "your_login_name"                # 由平台提供的用户名
+  user_key: "your_user_key"                    # 由平台提供的密码加密
+  service_id: "your_service_id"                # 政策咨询服务ID
+  timeout: 60s
+
+# 日志配置
+logging:
+  level: "info"   # debug, info, warn, error
+  format: "json"  # json, text
+
+# 性能配置
+performance:
+  max_goroutines: 10000         # 最大并发goroutine数
+  goroutine_pool_size: 5000     # goroutine池大小
+  task_queue_size: 10000        # 任务队列大小
+  enable_pprof: true            # 启用pprof性能分析（设为 false 可关闭 /debug/pprof/*）
+  enable_metrics: true          # 启用指标收集（设为 false 可关闭 /metrics 与指标中间件）
+  gc_percent: 100               # GC触发百分比（默认100）
+
