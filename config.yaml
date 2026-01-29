@@ -59,11 +59,21 @@ ocr:
 
 # 政策咨询配置
 policy:
-  base_url: "http://your-policy-api:port"      # 政策API地址
-  login_name: "your_login_name"                # 由平台提供的用户名
-  user_key: "your_user_key"                    # 由平台提供的密码加密
-  service_id: "your_service_id"                # 政策咨询服务ID
+  base_url: "https://www.xjksly.cn/sdrc-api/portal/policyInfo/portalList"  # 政策API地址
   timeout: 60s
+
+# Embedding配置
+embedding:
+  base_url: "http://39.98.44.136:6017/emb/embed"  # Embedding API地址
+  timeout: 30s
+
+# Milvus向量数据库配置
+milvus:
+  host: "39.98.44.136"
+  port: 6012
+  collection_name: "policy_vectors"  # 政策向量集合名称
+  dimension: 1024                      # 向量维度（根据embedding模型调整）
+  timeout: 30s
 
 # 日志配置
 logging:

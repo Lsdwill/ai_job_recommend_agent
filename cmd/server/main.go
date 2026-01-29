@@ -55,10 +55,18 @@ func main() {
 
 	locationService := service.NewLocationService(cfg, amapClient)
 	jobService := service.NewJobService(cfg, jobClient)
-	policyService := service.NewPolicyService(cfg)
+
+	// 初始化政策服务
+	policyService, err := service.NewPolicyService(cfg)
+	if err != nil {
+		log.Fatalf("初始化政策服务失败: %v", err)
+	}
+	defer policyService.Close()
+
 	chatService := service.NewChatService(cfg, llmClient, ocrClient, locationService, jobService, policyService)
 
 	chatHandler := handler.NewChatHandler(chatService)
+	policyHandler := handler.NewPolicyHandler(policyService)
 	healthHandler := handler.NewHealthHandler()
 	metricsHandler := handler.NewMetricsHandler()
 
@@ -107,6 +115,15 @@ func main() {
 	v1 := router.Group("/v1")
 	{
 		v1.POST("/chat/completions", chatHandler.ChatCompletions)
+	}
+
+	api := router.Group("/api")
+	{
+		policy := api.Group("/policy")
+		{
+			policy.POST("/update", policyHandler.UpdatePolicies)
+			policy.GET("/search", policyHandler.SearchPolicies)
+		}
 	}
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)

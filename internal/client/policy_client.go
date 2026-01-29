@@ -32,9 +32,9 @@ type PolicyClient struct {
 func NewPolicyClient(cfg *config.Config) *PolicyClient {
 	return &PolicyClient{
 		baseURL:   cfg.Policy.BaseURL,
-		loginName: cfg.Policy.LoginName,
-		userKey:   cfg.Policy.UserKey,
-		serviceID: cfg.Policy.ServiceID,
+		loginName: "", // 旧版API字段，已废弃
+		userKey:   "", // 旧版API字段，已废弃
+		serviceID: "", // 旧版API字段，已废弃
 		httpClient: NewHTTPClient(HTTPClientConfig{
 			Timeout:             cfg.Policy.Timeout,
 			MaxIdleConns:        100,

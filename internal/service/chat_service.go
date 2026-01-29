@@ -965,64 +965,43 @@ func (s *ChatService) handleParseImage(params map[string]interface{}) (string, e
 
 // handleQueryPolicy 处理政策咨询
 func (s *ChatService) handleQueryPolicy(params map[string]interface{}) (string, error) {
-	message, ok := params["message"].(string)
-	if !ok || message == "" {
-		return "", fmt.Errorf("缺少message参数")
+	query, ok := params["query"].(string)
+	if !ok || query == "" {
+		return "", fmt.Errorf("缺少query参数")
 	}
 
-	// 可选参数
-	chatID := ""
-	conversationID := ""
-	realName := false
-	aac001 := ""
-	aac147 := ""
-	aac003 := ""
-
-	if v, ok := params["chatId"].(string); ok {
-		chatID = v
-	}
-	if v, ok := params["conversationId"].(string); ok {
-		conversationID = v
-	}
-	if v, ok := params["realName"].(bool); ok {
-		realName = v
-	}
-	if v, ok := params["aac001"].(string); ok {
-		aac001 = v
-	}
-	if v, ok := params["aac147"].(string); ok {
-		aac147 = v
-	}
-	if v, ok := params["aac003"].(string); ok {
-		aac003 = v
+	// 获取topK参数，默认为3
+	topK := 3
+	if v, ok := params["topK"].(float64); ok {
+		topK = int(v)
 	}
 
-	// 如果是实名咨询，验证必要参数
-	if realName && (aac001 == "" || aac147 == "" || aac003 == "") {
-		return "", fmt.Errorf("实名咨询需要提供个人编号(aac001)、身份证号(aac147)和姓名(aac003)")
-	}
+	// 搜索相关政策
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	// 调用政策咨询服务
-	responseMsg, newChatID, newConversationID, err := s.policyService.QueryPolicy(
-		message, chatID, conversationID, realName, aac001, aac147, aac003,
-	)
+	results, err := s.policyService.SearchPolicies(ctx, query, topK)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("搜索政策失败: %w", err)
 	}
 
-	// 构建返回结果（包含chatID和conversationID供后续多轮对话使用）
-	result := map[string]interface{}{
-		"message":        responseMsg,
-		"chatId":         newChatID,
-		"conversationId": newConversationID,
+	if len(results) == 0 {
+		return "未找到相关政策信息，建议您换个关键词重新搜索或联系相关部门咨询。", nil
 	}
 
-	resultJSON, err := json.Marshal(result)
-	if err != nil {
-		return "", fmt.Errorf("序列化结果失败: %w", err)
+	// 格式化返回结果
+	var resultBuilder strings.Builder
+	resultBuilder.WriteString(fmt.Sprintf("为您找到 %d 条相关政策：\n\n", len(results)))
+
+	for i, result := range results {
+		resultBuilder.WriteString(fmt.Sprintf("【政策 %d】\n", i+1))
+		resultBuilder.WriteString(result.Content)
+		resultBuilder.WriteString("\n")
+		resultBuilder.WriteString(fmt.Sprintf("相似度评分: %.2f\n", 1.0-result.Distance))
+		resultBuilder.WriteString("\n---\n\n")
 	}
 
-	return string(resultJSON), nil
+	return resultBuilder.String(), nil
 }
 
 // mergeToolCalls 合并流式响应中的工具调用

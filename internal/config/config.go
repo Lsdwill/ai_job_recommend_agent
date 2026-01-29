@@ -17,6 +17,8 @@ type Config struct {
 	JobAPI      JobAPIConfig      `yaml:"job_api"`
 	OCR         OCRConfig         `yaml:"ocr"`
 	Policy      PolicyConfig      `yaml:"policy"`
+	Embedding   EmbeddingConfig   `yaml:"embedding"`
+	Milvus      MilvusConfig      `yaml:"milvus"`
 	Logging     LoggingConfig     `yaml:"logging"`
 	Performance PerformanceConfig `yaml:"performance"`
 }
@@ -66,13 +68,25 @@ type OCRConfig struct {
 	Timeout time.Duration `yaml:"timeout"`
 }
 
-// PolicyConfig 政策大模型配置
+// PolicyConfig 政策API配置
 type PolicyConfig struct {
-	BaseURL   string        `yaml:"base_url"`
-	LoginName string        `yaml:"login_name"`
-	UserKey   string        `yaml:"user_key"`
-	ServiceID string        `yaml:"service_id"`
-	Timeout   time.Duration `yaml:"timeout"`
+	BaseURL string        `yaml:"base_url"`
+	Timeout time.Duration `yaml:"timeout"`
+}
+
+// EmbeddingConfig Embedding配置
+type EmbeddingConfig struct {
+	BaseURL string        `yaml:"base_url"`
+	Timeout time.Duration `yaml:"timeout"`
+}
+
+// MilvusConfig Milvus向量数据库配置
+type MilvusConfig struct {
+	Host           string        `yaml:"host"`
+	Port           int           `yaml:"port"`
+	CollectionName string        `yaml:"collection_name"`
+	Dimension      int           `yaml:"dimension"`
+	Timeout        time.Duration `yaml:"timeout"`
 }
 
 // LoggingConfig 日志配置
@@ -118,14 +132,14 @@ func Load(configPath string) (*Config, error) {
 	if v := os.Getenv("OCR_BASE_URL"); v != "" {
 		cfg.OCR.BaseURL = v
 	}
-	if v := os.Getenv("POLICY_LOGIN_NAME"); v != "" {
-		cfg.Policy.LoginName = v
+	if v := os.Getenv("EMBEDDING_BASE_URL"); v != "" {
+		cfg.Embedding.BaseURL = v
 	}
-	if v := os.Getenv("POLICY_USER_KEY"); v != "" {
-		cfg.Policy.UserKey = v
+	if v := os.Getenv("MILVUS_HOST"); v != "" {
+		cfg.Milvus.Host = v
 	}
-	if v := os.Getenv("POLICY_SERVICE_ID"); v != "" {
-		cfg.Policy.ServiceID = v
+	if v := os.Getenv("MILVUS_PORT"); v != "" {
+		fmt.Sscanf(v, "%d", &cfg.Milvus.Port)
 	}
 	if v := os.Getenv("SERVER_PORT"); v != "" {
 		fmt.Sscanf(v, "%d", &cfg.Server.Port)

@@ -187,41 +187,21 @@ func GetAvailableTools() []Tool {
 			Type: "function",
 			Function: FunctionDef{
 				Name:        "queryPolicy",
-				Description: fmt.Sprintf("查询%s政策信息，提供就业创业、社保医保、人才政策等方面的政策咨询服务", cityName),
+				Description: fmt.Sprintf("查询%s就业创业相关政策信息，包括就业补贴、创业扶持、见习补贴等政策", cityName),
 				Parameters: map[string]interface{}{
 					"type": "object",
 					"properties": map[string]interface{}{
-						"message": map[string]interface{}{
+						"query": map[string]interface{}{
 							"type":        "string",
-							"description": fmt.Sprintf("用户的政策咨询问题，例如：%s市大学生就业补贴政策、创业扶持政策、人才引进政策等", cityName),
+							"description": "政策查询关键词，例如：就业补贴、创业扶持、见习补贴、职业培训等",
 						},
-						"chatId": map[string]interface{}{
-							"type":        "string",
-							"description": "会话ID，用于多轮对话，首次调用时不传或传空字符串",
-						},
-						"conversationId": map[string]interface{}{
-							"type":        "string",
-							"description": "流水号，用于多轮对话，首次调用时不传或传空字符串",
-						},
-						"realName": map[string]interface{}{
-							"type":        "boolean",
-							"description": "是否为实名咨询，如果为true，需要同时提供个人编号、身份证号和姓名",
-							"default":     false,
-						},
-						"aac001": map[string]interface{}{
-							"type":        "string",
-							"description": "个人编号，当realName为true时必须提供",
-						},
-						"aac147": map[string]interface{}{
-							"type":        "string",
-							"description": "身份证号，当realName为true时必须提供",
-						},
-						"aac003": map[string]interface{}{
-							"type":        "string",
-							"description": "姓名，当realName为true时必须提供",
+						"topK": map[string]interface{}{
+							"type":        "integer",
+							"description": "返回最相关的政策数量，默认为3",
+							"default":     3,
 						},
 					},
-					"required": []string{"message"},
+					"required": []string{"query"},
 				},
 			},
 		},
