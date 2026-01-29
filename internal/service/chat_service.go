@@ -991,6 +991,7 @@ func (s *ChatService) handleQueryPolicy(params map[string]interface{}) (string, 
 
 	// 格式化返回结果
 	var resultBuilder strings.Builder
+	resultBuilder.WriteString("【重要提示】以下政策名称为官方标准名称，在回复用户时必须原样输出，严禁修改、改写或简化。\n\n")
 	resultBuilder.WriteString(fmt.Sprintf("为您找到 %d 条相关政策：\n\n", len(results)))
 
 	for i, result := range results {
@@ -1000,6 +1001,8 @@ func (s *ChatService) handleQueryPolicy(params map[string]interface{}) (string, 
 		resultBuilder.WriteString(fmt.Sprintf("相似度评分: %.2f\n", 1.0-result.Distance))
 		resultBuilder.WriteString("\n---\n\n")
 	}
+
+	resultBuilder.WriteString("【再次提醒】在向用户展示政策时，政策名称必须与上述内容中的【政策名称】字段完全一致，不得进行任何形式的修改。")
 
 	return resultBuilder.String(), nil
 }

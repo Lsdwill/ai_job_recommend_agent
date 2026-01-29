@@ -187,7 +187,7 @@ func GetAvailableTools() []Tool {
 			Type: "function",
 			Function: FunctionDef{
 				Name:        "queryPolicy",
-				Description: fmt.Sprintf("查询%s就业创业相关政策信息，包括就业补贴、创业扶持、见习补贴等政策", cityName),
+				Description: fmt.Sprintf("查询%s就业创业相关政策信息，包括就业补贴、创业扶持、见习补贴等政策。【重要】返回的政策名称必须原样输出，严禁修改、改写或简化政策名称。", cityName),
 				Parameters: map[string]interface{}{
 					"type": "object",
 					"properties": map[string]interface{}{
@@ -306,6 +306,7 @@ func GetSystemPrompt() string {
    - 成功：展示返回的数据，给出肯定答复
    - 失败：说明失败原因，建议解决方案
    - 严禁同时出现成功和失败的矛盾表述
+7. 【政策名称强制保留】在列举政策时，**必须原样输出政策名称**，严禁对政策名称进行任何修改、改写、简化或重新表述。政策名称是官方标准名称，必须保持完整性和准确性
 
 ## 自检清单（每次回复前必须确认）
 在输出任何岗位相关内容前，请自问：
